@@ -55,29 +55,74 @@
     
     <script>
         // more lenient, also takes timecode formats like 00:00:00.000 and 00:00:00:00
+        // - only treat a digits-only line as a sequence header when the next non-empty line is a timecode.
         function parseFile(content) {
-            let lines = content.split('\n');
-            let parsedData = [];
+            const lines = content.split('\n');
+            const parsedData = [];
             let number = null, timecode = null, sentence = null;
             const timecodePattern = /^\d{2}:\d{2}:\d{2}[.,:]\d{2,3} --> \d{2}:\d{2}:\d{2}[.,:]\d{2,3}$/;
 
-            lines.forEach(line => {
-                line = line.trim();
-                if (/^\d+$/.test(line)) {
-                    if (number && timecode && sentence) {
-                        parsedData.push([number, timecode, sentence]);
-                    }
-                    number = line;
-                    sentence = null;
-                    timecode = null;
-                } else if (timecodePattern.test(line)) {
-                    timecode = line.split(' --> ')[0];
-                } else if (line) {
-                    sentence = line;
-                }
-            });
+            for (let i = 0; i < lines.length; i++) {
+                const rawLine = lines[i];
+                const line = rawLine.trim();
 
-            if (number && timecode && sentence) {
+                // If a digits-only line, treat as index only if the next non-empty line is a timecode
+                if (/^\d+$/.test(line)) {
+                    let j = i + 1;
+                    while (j < lines.length && lines[j].trim() === '') j++;
+                    if (j < lines.length && timecodePattern.test(lines[j].trim())) {
+                        // It's a true sequence number/header.
+                        if (number && timecode && sentence !== null) {
+                            parsedData.push([number, timecode, sentence]);
+                        }
+                        number = line;
+                        timecode = null;
+                        sentence = null;
+                        continue;
+                    }
+                }
+
+                if (timecodePattern.test(line)) {
+                    timecode = line.split(' --> ')[0];
+                    const textLines = [];
+                    let k = i + 1;
+                    while (k < lines.length) {
+                        const candidateRaw = lines[k];
+                        const candidate = candidateRaw.trim();
+
+                        if (candidate === '') {
+                            textLines.push('');
+                            k++;
+                            continue;
+                        }
+                        if (/^\d+$/.test(candidate)) {
+                            let j2 = k + 1;
+                            while (j2 < lines.length && lines[j2].trim() === '') j2++;
+                            if (j2 < lines.length && timecodePattern.test(lines[j2].trim())) {
+                                break;
+                            }
+                        }
+
+                        if (timecodePattern.test(candidate)) {
+                            break;
+                        }
+                        textLines.push(candidate);
+                        k++;
+                    }
+
+                    sentence = textLines.length > 0 ? textLines.join(' ') : '';
+                    i = Math.max(i, k - 1);
+                    continue;
+                }
+                if (line !== '') {
+                    if (sentence === null) {
+                        sentence = line;
+                    } else {
+                        sentence = (sentence.length > 0 ? sentence + ' ' : '') + line;
+                    }
+                }
+            }
+            if (number && timecode && sentence !== null) {
                 parsedData.push([number, timecode, sentence]);
             }
 
