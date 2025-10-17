@@ -60,27 +60,27 @@
             let parsedData = [];
             let number = null, timecode = null, sentence = null;
             const timecodePattern = /^\d{2}:\d{2}:\d{2}[.,:]\d{2,3} --> \d{2}:\d{2}:\d{2}[.,:]\d{2,3}$/;
-
+        
             lines.forEach(line => {
                 line = line.trim();
                 if (/^\d+$/.test(line)) {
-                    if (number && timecode && sentence) {
-                        parsedData.push([number, timecode, sentence]);
+                    if (number && timecode !== null) {
+                        parsedData.push([number, timecode, sentence !== null ? sentence : '']);
                     }
                     number = line;
                     sentence = null;
                     timecode = null;
                 } else if (timecodePattern.test(line)) {
                     timecode = line.split(' --> ')[0];
-                } else if (line) {
-                    sentence = line;
+                } else {
+                    sentence = line.length > 0 ? line : '';
                 }
             });
-
-            if (number && timecode && sentence) {
-                parsedData.push([number, timecode, sentence]);
+        
+            if (number && timecode !== null) {
+                parsedData.push([number, timecode, sentence !== null ? sentence : '']);
             }
-
+        
             return { parsedData };
         }
 
