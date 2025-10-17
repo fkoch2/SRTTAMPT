@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRTTAMPT</title>
+    <style>
+        body {
+            background-color: #fff2d1;
+            color: black;
+            font-family: Arial, sans-serif;
+            text-align: left;
+            padding-left: 20px;
+        }
+        button, a {
+            background-color: black;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>srt to a more practical transcript (SRTTAMPT)</h1>
+    <p>SRTTAMPT funktioniert nur mit einem .srt.
+        Es fasst die Untertitel zu Blöcken zusammen, um sie angenehmer zum Lesen zu machen.
+        Wird ein Block zu lange, wird ein Timestamp dazwischengeschoben.</p>
+    <pre>Die Datei muss folgende Formatierung aufweisen:
+
+        1
+        00:00:01,020 --> 00:00:06,520
+        tu pourrais nous raconter ton histoire tu es ici depuis peu de temps tu pourrais raconter comment
+
+        oder
+
+        2
+        00:00:06,840 --> 00:00:13.680
+        comment t'es venu qu'est ce que pour quel objectif tu es venu je suis venu ici par
+
+        oder
+
+        3
+        00:00:16,120 --> 00:00:22:00
+        à côté de les rideaux on est ici un mois et 20 jours
+    </pre>
+    <input type="file" id="fileInput" accept=".srt">
+    <button onclick="processFile()">Convert!</button>
+    <a id="downloadLink" style="display:none">Download Output</a>
+    
+    <script>
+        // more lenient, also takes timecode formats like 00:00:00.000 and 00:00:00:00
+        function parseFile(content) {
+            let lines = content.split('\n');
+            let parsedData = [];
+            let number = null, timecode = null, sentence = null;
+            const timecodePattern = /^\d{2}:\d{2}:\d{2}[.,:]\d{2,3} --> \d{2}:\d{2}:\d{2}[.,:]\d{2,3}$/;
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (/^\d+$/.test(line)) {
+                    if (number && timecode && sentence) {
+                        parsedData.push([number, timecode, sentence]);
+                    }
+                    number = line;
+                    sentence = null;
+                    timecode = null;
+                } else if (timecodePattern.test(line)) {
+                    timecode = line.split(' --> ')[0];
+                } else if (line) {
+                    sentence = line;
+                }
+            });
+
+            if (number && timecode && sentence) {
+                parsedData.push([number, timecode, sentence]);
+            }
+
+            return { parsedData };
+        }
+
+        function processData(parsedData) {
+            const LEVEL = 10; // Number of sentences before printing timestamp
+            let accumulatedSentence = [];
+            let counter = 0;
+            let output = ""; // Initialize output variable
+            let sequenceNumbers = new Set();
+
+            parsedData.forEach(([number, timestamp, sentence]) => {
+                sequenceNumbers.add(Number(number));
+                if (counter === 0) {
+                    // Print the accumulated sentences with the timestamp
+                    accumulatedSentence.push(`${timestamp}\n${sentence} `);
+                    counter++;
+                }
+                else if (counter < LEVEL && counter > 0) {
+                    accumulatedSentence.push(`${sentence} `);
+                    counter++;
+                }
+                else if (counter === LEVEL) {
+                    accumulatedSentence.push(`${sentence}\n\n`);
+                    counter = 0;
+                }
+            });
+            const missingNumbers = checkForMissingNumbers(sequenceNumbers);
+            if (missingNumbers.length > 0) {
+                console.log(`Missing subtitle numbers: ${missingNumbers.join(', ')}`);
+            }
+            else {
+                console.log(`No subtitle numbers missing.`);
+            }
+            output += `${accumulatedSentence.join('')}\n`; 
+            output += '\n' + '-'.repeat(40);
+            output += '\n' + 'by schnittassi.ch';
+
+            return output;
+        }
+
+        function processFile() {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length === 0) {
+                alert('Please select a file!');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const content = event.target.result;
+                const { parsedData } = parseFile(content);
+                const output = processData(parsedData);
+                downloadOutput(output, file.name);
+            };
+            reader.readAsText(file);
+        }
+        function checkForMissingNumbers(sequenceNumbers) {
+            const missingNumbers = [];
+            const sortedNumbers = Array.from(sequenceNumbers).sort((a, b) => a - b);
+            const highestNumber = sortedNumbers[sortedNumbers.length - 1];
+            const lowestNumber = sortedNumbers[0];
+
+            // Check for missing numbers in the range from lowest to highest
+            for (let i = lowestNumber; i <= highestNumber; i++) {
+                if (!sequenceNumbers.has(i)) {
+                    missingNumbers.push(i);
+                }
+            }
+
+            return missingNumbers;
+        }
+        function downloadOutput(output, inputFilename) {
+            const blob = new Blob([output], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const downloadLink = document.getElementById('downloadLink');
+
+            const outputFilename = inputFilename.replace(/\.srt$/, '_srttampted.txt');
+            downloadLink.href = url;
+            downloadLink.download = outputFilename;
+            downloadLink.style.display = 'block';
+            downloadLink.textContent = 'Download Output';
+        }
+        
+    </script>
+</body>
+</html>
