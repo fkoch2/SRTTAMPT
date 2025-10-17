@@ -18,3 +18,5 @@ Die Datei muss folgende Formatierung aufweisen:
         3
         00:00:16,120 --> 00:00:22:00
         à côté de les rideaux on est ici un mois et 20 jours
+        
+Funktioniert aktuell nicht mit Untertiteln, die nichts oder nur eine Zahl enthalten.
