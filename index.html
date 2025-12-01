@@ -49,8 +49,8 @@
     </pre>
     
     <input type="file" id="fileInput" accept=".srt">
-    <button onclick="processFile()">Convert!</button>
-    <a id="downloadLink" style="display:none">Download Output</a>
+    <button onclick="processFile()">Konvertieren</button>
+    <a id="downloadLink" style="display:none">Output herunterladen</a>
     
     <script>
         // more lenient, also takes timecode formats like 00:00:00.000 and 00:00:00:00
@@ -154,6 +154,7 @@
             const missingNumbers = checkForMissingNumbers(sequenceNumbers);
             if (missingNumbers.length > 0) {
                 console.log(`Missing subtitle numbers: ${missingNumbers.join(', ')}`);
+                alert('Missing subtitle numbers: ${missingNumbers.join(', ')}, output might be compromised');
             }
             else {
                 console.log(`No subtitle numbers missing.`);
